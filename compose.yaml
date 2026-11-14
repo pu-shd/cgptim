@@ -1,0 +1,20 @@
+services:
+  tests:
+    build:
+      context: .
+      target: test
+    init: true
+    network_mode: none
+    shm_size: 1gb
+    volumes:
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+  app:
+    build:
+      context: .
+      target: production
+    ports:
+      - '127.0.0.1:${CGPTIM_PORT:-8080}:8080'
+    read_only: true
+    tmpfs:
+      - /tmp
