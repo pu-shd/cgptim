@@ -306,6 +306,11 @@ test('ships production CSP and distributable license notices', async ({ page, re
     .getAttribute('content');
   expect(csp).toContain("script-src 'self'");
   expect(csp).not.toContain('unsafe-inline');
+  await expect(page.locator('footer')).not.toContainText('Design adapted from');
+  await expect(page.locator('footer').getByRole('link', { name: 'StackImages' })).toHaveCount(0);
+  await expect(
+    page.locator('footer').getByRole('link', { name: 'Licenses', exact: true }),
+  ).toBeVisible();
   const response = await request.get('/licenses.txt');
   expect(response.ok()).toBe(true);
   expect(await response.text()).toContain('Copyright (c) 2025 PrincetonUniversity');
