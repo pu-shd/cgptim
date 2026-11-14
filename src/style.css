@@ -706,3 +706,38 @@ dialog::backdrop {
     transition: background-color 0.12s ease;
   }
 }
+
+.panel-heading {
+  display: list-item;
+  list-style-position: inside;
+}
+.panel-heading::marker {
+  color: #174f77;
+}
+.panel-heading h2 {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.panel-heading > .hint {
+  margin-left: 12px;
+}
+.archive-panel:not([open]) {
+  padding-bottom: 24px;
+}
+.message-author strong {
+  font-size: 0.82rem;
+}
+#export-status,
+#review-status {
+  font-size: 0.88rem;
+  color: #174f77;
+}
+@media (max-width: 650px) {
+  .archive-panel:not([open]) {
+    padding-bottom: 18px;
+  }
+  .panel-heading > .hint {
+    display: block;
+    margin: 8px 0 0 24px;
+  }
+}

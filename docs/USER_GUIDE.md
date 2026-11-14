@@ -8,40 +8,42 @@ Choose the ZIP in cgptim, or extract it and select `conversations.json` alongsid
 
 An HTML-only export is not supported. Exported HTML is never executed. Non-JSON files inside a ZIP appear in the file inventory but are not rendered. Folder upload is not required; selecting the original ZIP is easiest.
 
-**Cancel import** stops the worker. **Clear archive** removes loaded conversations, related data, selections, notes, and previews from the app. Reloading or closing the tab also discards them. Downloaded files remain on your device. This is not a secure memory-erasure guarantee for the browser or operating system.
+**Cancel import** stops the worker. **Clear** removes loaded conversations, related data, selections and previews from the app. Reloading or closing the tab also discards them. Downloaded files and copied clipboard text remain on your device. This is not a secure memory-erasure guarantee for the browser or operating system.
 
 ## Find and read a conversation
 
-Search matches titles and message text across every branch, including hidden/system/tool messages. A match can be on a different branch from the one currently displayed. Choose that conversation and switch branches if the matching text is not visible. Starred and archived filters use the flags in the source export. Sort by update date, creation date, or title.
+The page title is **Chat Export Viewer**. Steps 2 and 3 are collapsed behind disclosure triangles until you open an export or the sample. Loading data opens both sections; **Clear** closes them again. You can also toggle each section manually using its heading or the keyboard.
 
-The current path is the chain ending at the export's `current_node`. Alternate leaves appear in the branch menu. Shared ancestors appear on each corresponding path. Branches follow parent pointers, even when the export does not contain `children` arrays. Missing parents create a partial history with an import note. Cycles cause the affected conversation to be skipped with an explanation.
+Search matches titles and visible message text on each conversation's current path. Conversations appear by most recent update. Click a title to read the conversation; use its checkbox to include it in exports. Browsing another conversation does not change your selection.
 
-Only visible user and assistant messages are shown by default. The **Show system, tool & hidden messages** checkbox reveals additional source content. Changing this setting or changing branches selects all messages on the resulting path; review your selection again before downloading.
+The read-only preview shows every visible user and assistant message on the current path, initially displaying 100 messages. **Show more messages** expands the preview. Exporting always includes the entire current path, including messages that have not yet been displayed. There are no message checkboxes, range controls, or branch controls.
 
-Markdown is formatted locally. Embedded images, scripts, HTML media, forms, and frames are blocked. External hyperlinks open in a new tab only when clicked. Image/audio/video references appear as text placeholders. This version does not play recordings, display original images, resolve citation markers, or restore source attachments.
+The current path follows parent links ending at the export's `current_node`. Missing parents create a partial history with an import note; cycles cause the affected conversation to be skipped. Alternate branches and system/tool/hidden messages are omitted from the readable transcript. Check the source export for those records.
 
-## Slice and export
+Markdown is formatted locally. Embedded images, scripts, HTML media, forms, and frames are blocked. External hyperlinks open only when clicked. Image/audio/video references appear as text placeholders; original media files must be provided separately.
 
-Each visible message has an inclusion checkbox. Use **Select all**, **Clear selection**, **Last 10**, or **Select a message range** for larger histories. Numbers refer to the current branch and visibility setting. Selected messages preserve their original order, even if you leave gaps. The transcript explicitly states that unselected messages and branches are omitted.
+## Select and repackage whole conversations
 
-A handoff note is text you write yourself, such as a reminder of the next task or a changed constraint. It is included in both download formats.
+Use the sidebar checkboxes to select one or more whole conversations. **Select all** includes every conversation matching the current search, including results beyond the first 100 displayed. **Clear selection** unchecks every conversation, including ones hidden by the search. Selections persist while you browse or search within the opened export. Opening a replacement export or using **Clear** resets them.
 
-**Markdown** is the recommended attachment format. It contains the title, dates, an omission notice, continuation instructions, your note, selected message text, and attachment references. It excludes account settings and other conversations.
+Step 3 shows the conversation count and combined Markdown size. It offers:
 
-**Portable JSON** stores the same selected messages with structured roles, timestamps, IDs, and attachment references. It can be opened again in cgptim. It is a cgptim format, not an official ChatGPT import format. It does not preserve the source export's unselected nodes, raw metadata, or entire branch tree.
+- **Review & download:** inspect the exact combined Markdown or portable JSON before downloading. A single selection uses that conversation's title as its filename; multiple selections use `selected-conversations`.
+- **Copy to clipboard:** available for Markdown exports up to 32 KiB in UTF-8, including titles, metadata, and continuation instructions. It copies the same text as the Markdown download. The review dialog also offers copying for short Markdown.
+- **Download selected (ZIP):** separate Markdown/JSON pairs for the selected conversations, plus a README. Unselected conversations and related account records are excluded.
 
-**Review & download** shows the exact file contents. Read it before sharing. A transcript can contain private data or historical instructions. Selecting fewer messages is the primary way to reduce its contents; for text-level redaction, edit the downloaded file locally before uploading it.
+If clipboard permission is denied or the Clipboard API is unavailable, the app opens the review, selects the exact Markdown text, and explains how to use the browser's Copy command. Download remains available. Larger Markdown exports use file downloads. The 32 KiB threshold is a conservative app policy, not a model token limit or a guarantee that ChatGPT will accept a paste.
 
-For a batch ZIP, mark conversations in the sidebar. Each visited conversation uses its most recent branch, message selection, and note. Selections persist while you move between conversations in this tab. Unvisited conversations use their current path and visible user/assistant messages, with any note from a reopened portable slice. Marking a conversation does not automatically export all its alternate branches. The ZIP includes a separate Markdown/JSON pair for each included conversation and a README. Empty selections are omitted. You can prepare a different slice for each marked conversation before downloading the ZIP.
+**Portable JSON** retains roles, timestamps, IDs, and attachment references for each exported current path. You can reopen it in cgptim. It is not an official ChatGPT account import format and does not preserve alternate branches, raw metadata, or media bytes. Notes already present in reopened portable files are preserved. Review private content before copying or sharing; edit the downloaded file locally if you need text-level redaction.
 
 ## Continue in ChatGPT
 
 1. Start a new conversation in the destination account.
-2. Attach the downloaded `.md` file. Use the `.json` only if you prefer its structured form. The two files represent the same slice, so attach one format.
-3. Paste the continuation prompt shown in cgptim, and describe what you want to do next.
-4. Upload any original images, documents, or other files needed for that task separately.
+2. Paste the copied Markdown, or attach the downloaded `.md` file. Markdown and JSON represent the same transcript; use one format.
+3. Describe what you want to do next. When attaching a file, the provided continuation prompt can help orient the new conversation.
+4. Upload any original images, documents, or other files needed for the task separately.
 
-The model receives historical context through the attachment. Its context window and file-processing behavior still apply. This does not recreate sidebar history, transfer saved memory, configure custom instructions, or restore projects. If a transcript is too large, return to cgptim and select a smaller range. The app shows file bytes, not a model-specific token estimate.
+This provides historical context. It does not recreate sidebar history, transfer saved memory, configure custom instructions, or restore projects. ChatGPT's context and attachment limits still apply. If a combined export is too large, select fewer conversations or use the ZIP's separate files. The app reports file bytes, not model-specific tokens.
 
 ## Related data
 
@@ -55,6 +57,6 @@ These files may contain account information and are never automatically included
 - **No supported data:** select the ZIP or conversation JSON, rather than `index.html`.
 - **Memory or file limit:** extract the ZIP locally and open smaller JSON files. The app's limits are deliberate; browser memory use can exceed source-file size.
 - **Import notes:** expand the notes below the import area. Valid conversations may still load when another conversation is malformed.
-- **Missing branch content:** change the branch or reveal hidden messages. Unknown content is labeled. Check the original export for full fidelity.
-- **Clipboard unavailable:** the app selects the continuation prompt so you can copy it using the browser's Copy command.
+- **Missing branch content:** this simplified viewer uses the current path only. Check the original export for alternate branches or hidden content. Unknown content types are labeled.
+- **Clipboard unavailable:** the review selects the Markdown for manual copying. For the continuation prompt, the app selects its text on the page.
 - **Reader cannot start:** use HTTPS or a local HTTP server. Opening `index.html` with a `file://` URL does not support module workers reliably.

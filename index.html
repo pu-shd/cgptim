@@ -11,9 +11,9 @@
     />
     <meta
       name="description"
-      content="Browse your ChatGPT data export locally and choose conversation slices to carry into a new chat."
+      content="Browse your ChatGPT data export locally and repackage selected conversations."
     />
-    <title>cgptim · Your conversations, continued</title>
+    <title>Chat Export Viewer</title>
     <link rel="icon" href="data:," />
     <script type="module" src="/src/main.ts"></script>
   </head>
@@ -21,22 +21,17 @@
     <a class="skip" href="#workspace">Skip to conversations</a>
     <main>
       <header class="masthead">
-        <div>
-          <p class="eyebrow">CGPTIM <span> / </span> CHATGPT EXPORT VIEWER</p>
-          <h1>Your conversations, continued.</h1>
-          <p class="intro">Explore your archive. Take the context you need into your next chat.</p>
-        </div>
+        <h1>Chat Export Viewer</h1>
         <span class="badge">Local processing · no account needed</span>
       </header>
 
       <section class="panel import-panel" aria-labelledby="import-heading">
         <div class="section-heading">
           <h2 id="import-heading"><span class="step">1</span> Open your export</h2>
-          <button id="clear" class="secondary small" hidden>Clear archive</button>
+          <button id="clear" class="secondary small" hidden>Clear</button>
         </div>
         <div id="dropzone" class="dropzone">
           <div>
-            <strong>Bring your history with you</strong>
             <p>Drop an export ZIP, or choose one or more JSON files.</p>
           </div>
           <label class="file-button" for="files"
@@ -58,11 +53,11 @@
         </details>
       </section>
 
-      <section class="panel archive-panel" id="workspace" aria-labelledby="browse-heading">
-        <div class="section-heading">
+      <details class="panel archive-panel" id="workspace" aria-labelledby="browse-heading">
+        <summary class="panel-heading">
           <h2 id="browse-heading"><span class="step">2</span> Explore &amp; select</h2>
           <span id="archive-count" class="hint">No archive loaded</span>
-        </div>
+        </summary>
         <div class="tabs" role="tablist" aria-label="Archive views">
           <button
             id="chat-tab"
@@ -94,78 +89,30 @@
                 placeholder="Titles and message text…"
                 autocomplete="off"
               />
-              <div class="filter-row">
-                <label for="filter">Show</label
-                ><select id="filter">
-                  <option value="all">All conversations</option>
-                  <option value="starred">Starred</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-              <label for="sort" class="sr-only">Sort conversations</label
-              ><select id="sort">
-                <option value="newest">Recently updated</option>
-                <option value="oldest">Oldest first</option>
-                <option value="title">Title A–Z</option>
-              </select>
               <p id="results" class="hint">Your conversations will appear here.</p>
               <div id="conversation-list"></div>
               <button id="more-conversations" class="secondary small" hidden>
                 Show more conversations
               </button>
-              <div class="batch">
-                <p id="batch-count" class="hint">0 conversations marked for batch export</p>
-                <button id="batch-export" class="secondary small" disabled>
-                  Download marked (ZIP)
-                </button>
+              <div class="selection-toolbar">
+                <button id="select-all" class="text-button">Select all</button>
+                <button id="select-none" class="text-button">Clear selection</button>
               </div>
+              <p id="selection-count" class="hint" role="status">0 conversations selected</p>
             </aside>
             <div class="conversation">
               <div id="empty" class="empty">
-                <span class="empty-icon" aria-hidden="true">↗</span>
-                <h3>A new place for your old ideas.</h3>
-                <p>
-                  Open an export or try the sample to browse a conversation and choose what to carry
-                  forward.
-                </p>
+                <p>Open an export to browse and select conversations.</p>
               </div>
               <div id="conversation-content" hidden>
                 <div class="chat-heading">
                   <h3 id="conversation-title" tabindex="-1"></h3>
                   <p id="conversation-meta" class="hint"></p>
                 </div>
-                <div class="branch-controls">
-                  <label for="branch">Conversation branch</label
-                  ><select id="branch"></select
-                  ><label class="check"
-                    ><input id="extras" type="checkbox" /> Show system, tool &amp; hidden
-                    messages</label
-                  >
-                </div>
-                <div class="selection-toolbar">
-                  <span id="selection-count" class="hint"></span
-                  ><button id="select-all" class="text-button">Select all</button
-                  ><button id="select-none" class="text-button">Clear selection</button
-                  ><button id="select-last" class="text-button">Last 10</button>
-                </div>
-                <details class="range">
-                  <summary>Select a message range</summary>
-                  <div class="actions">
-                    <label for="range-start">From</label
-                    ><input id="range-start" type="number" min="1" value="1" /><label
-                      for="range-end"
-                      >through</label
-                    ><input id="range-end" type="number" min="1" value="1" /><button
-                      id="apply-range"
-                      class="secondary small"
-                    >
-                      Select range
-                    </button>
-                  </div>
-                  <p class="hint">
-                    Message numbers refer to this branch and the visibility setting above.
-                  </p>
-                </details>
+                <p class="hint">
+                  Read-only preview of the current conversation path. Selecting a conversation
+                  includes all its visible user and assistant messages.
+                </p>
                 <div id="messages" aria-label="Conversation messages"></div>
                 <button id="more-messages" class="secondary small" hidden>
                   Show more messages
@@ -188,32 +135,35 @@
             <div id="inventory"></div>
           </details>
         </div>
-      </section>
+      </details>
 
-      <section class="panel export-panel" aria-labelledby="export-heading">
-        <h2 id="export-heading"><span class="step">3</span> Carry the context forward</h2>
+      <details class="panel export-panel" id="export-panel" aria-labelledby="export-heading">
+        <summary class="panel-heading">
+          <h2 id="export-heading"><span class="step">3</span> Repackage conversations</h2>
+        </summary>
         <div class="export-grid">
           <div>
             <p>
-              Download the selected messages, attach the file to a new ChatGPT conversation, and
-              paste the continuation prompt below.
+              Copy a short Markdown transcript into a new chat, or download the selected
+              conversations as attachments.
             </p>
-            <label for="note">Add a handoff note <span class="hint">(optional)</span></label
-            ><textarea
-              id="note"
-              rows="3"
-              maxlength="10000"
-              placeholder="What should the next conversation focus on?"
-            ></textarea>
             <div class="actions">
-              <button id="preview" disabled>Review &amp; download</button
-              ><label for="export-format" class="sr-only">Export format</label
+              <button id="preview" disabled>Review &amp; download</button>
+              <button id="copy-markdown" class="secondary" hidden>Copy to clipboard</button>
+              <label for="export-format" class="sr-only">Export format</label
               ><select id="export-format">
                 <option value="md">Markdown (.md) · for ChatGPT</option>
                 <option value="json">Portable JSON (.json) · reopen here</option>
               </select>
             </div>
-            <p id="export-size" class="hint">Select a conversation to prepare a download.</p>
+            <div class="actions">
+              <button id="batch-export" class="secondary small" disabled>
+                Download selected (ZIP)
+              </button>
+            </div>
+            <p id="export-size" class="hint">Select a conversation to prepare an export.</p>
+            <p id="clipboard-hint" class="hint" hidden></p>
+            <p id="export-status" role="status" aria-live="polite"></p>
           </div>
           <div class="handoff">
             <h3>Start the next conversation</h3>
@@ -223,10 +173,11 @@
         </div>
         <p class="hint">
           This creates an attachment for context. It does not restore chats to an account or
-          transfer memories, projects, custom instructions, or original attachments. ChatGPT’s
-          upload and context limits still apply.
+          transfer memories, projects, custom instructions, or original attachments. Exports use the
+          current conversation path; alternate branches and hidden/system/tool messages are omitted.
+          ChatGPT’s upload and context limits still apply.
         </p>
-      </section>
+      </details>
 
       <details class="panel help">
         <summary>How it works &amp; privacy</summary>
@@ -240,12 +191,12 @@
             files.
           </li>
           <li>
-            Choose a conversation and branch. Use the checkboxes or a message range to choose the
-            context you want.
+            Use the conversation checkboxes to select whole conversations for export. The preview is
+            read-only.
           </li>
           <li>
-            Review the download, attach it to a new chat, and paste the continuation prompt. Attach
-            original media separately if needed.
+            Copy short Markdown directly into a new chat, or review and download an attachment.
+            Attach original media separately if needed.
           </li>
         </ol>
         <p>
@@ -277,7 +228,7 @@
       </details>
       <footer>
         <p>
-          cgptim 1.0 · <a href="./licenses.txt">Licenses</a> ·
+          cgptim 1.1 · <a href="./licenses.txt">Licenses</a> ·
           <a href="https://github.com/pu-shd/cgptim" target="_blank" rel="noopener noreferrer"
             >Source &amp; documentation</a
           >
@@ -294,16 +245,18 @@
     </main>
     <dialog id="review" aria-labelledby="review-title">
       <div class="section-heading">
-        <h2 id="review-title">Review your conversation slice</h2>
+        <h2 id="review-title">Review selected conversations</h2>
         <button id="close-review" class="secondary small">Close</button>
       </div>
       <p id="review-info" class="hint"></p>
       <label for="review-text">Exact download contents</label
       ><textarea id="review-text" readonly rows="18" spellcheck="false"></textarea>
       <div class="actions">
-        <button id="download">Download file</button
-        ><span class="hint">Only the selected messages and your handoff note are included.</span>
+        <button id="download">Download file</button>
+        <button id="copy-review" class="secondary" hidden>Copy to clipboard</button>
+        <span class="hint">Only selected conversations are included.</span>
       </div>
+      <p id="review-status" role="status" aria-live="polite"></p>
     </dialog>
   </body>
 </html>

@@ -1,6 +1,15 @@
 import './style.css';
 import { type Archive, type Conversation, type Message, isRecord, visibleMessages } from './model';
-import { CONTINUE_PROMPT, type Slice, exportZip, filename, markdown, portableJson } from './export';
+import {
+  CONTINUE_PROMPT,
+  type Slice,
+  exportZip,
+  filename,
+  combinedMarkdown,
+  wholeConversation,
+  portableJson,
+} from './export';
+import { canCopyMarkdown } from './clipboard';
 import { escape, renderMarkdown } from './render';
 import { parseDocuments } from './import';
 
@@ -10,16 +19,19 @@ const select = (id: string) => el<HTMLSelectElement>(id);
 const button = (id: string) => el<HTMLButtonElement>(id);
 let archive: Archive | null = null;
 let active: Conversation | null = null;
-let leaf: string | null = null;
 let messages: Message[] = [];
-let selected = new Set<string>();
 const markedConversations = new Set<string>();
-const remembered = new Map<string, { slice: Slice; extras: boolean }>();
 let listLimit = 100;
 let messageLimit = 100;
 let worker: Worker | null = null;
 let importTimer: ReturnType<typeof setTimeout> | null = null;
-let review: { text: string; name: string; type: string } | null = null;
+interface PreparedExport {
+  text: string;
+  name: string;
+  type: string;
+  format: string;
+}
+let review: PreparedExport | null = null;
 let searchIndex = new Map<string, string>();
 
 const date = (value: number | null) =>
@@ -113,23 +125,23 @@ function loadArchive(data: Archive) {
   el<HTMLDialogElement>('review').close();
   active = null;
   messages = [];
-  remembered.clear();
-  selected.clear();
   markedConversations.clear();
   listLimit = 100;
   searchIndex = new Map(
     data.conversations.map((c) => [
       c.id,
-      `${c.title}\n${Object.values(c.nodes)
+      `${c.title}\n${visibleMessages(c, c.current, false)
         .map((n) => n.text)
         .join('\n')}`.toLowerCase(),
     ]),
   );
   input('search').value = '';
-  select('filter').value = 'all';
-  select('sort').value = 'newest';
-  input('extras').checked = false;
-  el<HTMLTextAreaElement>('note').value = '';
+  el<HTMLDetailsElement>('workspace').open = true;
+  el<HTMLDetailsElement>('export-panel').open = true;
+  select('export-format').value = 'md';
+  el('export-status').textContent = '';
+  el('review-status').textContent = '';
+  button('chat-tab').click();
   el('archive-count').textContent =
     `${data.conversations.length} conversations · ${data.related.length} related data files`;
   button('clear').hidden = false;
@@ -157,21 +169,9 @@ function loadArchive(data: Archive) {
 }
 function sortedConversations() {
   const query = input('search').value.toLowerCase().trim();
-  const filter = select('filter').value;
   return (archive?.conversations ?? [])
-    .filter(
-      (c) =>
-        (!query || searchIndex.get(c.id)?.includes(query)) &&
-        (filter !== 'archived' || c.archived) &&
-        (filter !== 'starred' || c.starred),
-    )
-    .sort((a, b) =>
-      select('sort').value === 'title'
-        ? a.title.localeCompare(b.title)
-        : select('sort').value === 'oldest'
-          ? (a.created ?? 0) - (b.created ?? 0)
-          : (b.updated ?? 0) - (a.updated ?? 0),
-    );
+    .filter((c) => !query || searchIndex.get(c.id)?.includes(query))
+    .sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0));
 }
 function renderLibrary() {
   const list = sortedConversations();
@@ -181,93 +181,103 @@ function renderLibrary() {
     .slice(0, listLimit)
     .map(
       (c) =>
-        `<div class="conversation-item ${c.id === active?.id ? 'active' : ''}"><input type="checkbox" aria-label="Mark ${escape(c.title)} for batch export" data-mark="${escape(c.id)}" ${markedConversations.has(c.id) ? 'checked' : ''}><button data-open="${escape(c.id)}" ${c.id === active?.id ? 'aria-current="true"' : ''}><strong>${escape(c.title)}</strong><span>${escape(date(c.updated))}${c.starred ? ' · Starred' : ''}${c.archived ? ' · Archived' : ''}</span></button></div>`,
+        `<div class="conversation-item ${c.id === active?.id ? 'active' : ''}"><input type="checkbox" aria-label="Select ${escape(c.title)}" data-mark="${escape(c.id)}" ${markedConversations.has(c.id) ? 'checked' : ''}><button data-open="${escape(c.id)}" ${c.id === active?.id ? 'aria-current="true"' : ''}><strong>${escape(c.title)}</strong><span>${escape(date(c.updated))}${c.starred ? ' · Starred' : ''}${c.archived ? ' · Archived' : ''}</span></button></div>`,
     )
     .join('');
   if (!list.length)
     el('conversation-list').textContent = archive
-      ? 'No conversations match these filters.'
-      : 'Open your archive to get started.';
+      ? 'No conversations match your search.'
+      : 'Open your export to get started.';
   el('more-conversations').hidden = list.length <= listLimit;
-  el('batch-count').textContent =
-    `${markedConversations.size} conversations marked for batch export`;
-  button('batch-export').disabled = markedConversations.size === 0;
+  button('select-all').disabled = !list.length;
+  button('select-none').disabled = !markedConversations.size;
+  updateSelection();
 }
 function openConversation(id: string) {
   const c = archive?.conversations.find((c) => c.id === id);
   if (!c) return;
-  const saved = remembered.get(c.id);
   active = c;
-  leaf = saved?.slice.branchId ?? c.current;
-  input('extras').checked = saved?.extras ?? false;
-  el<HTMLTextAreaElement>('note').value = saved?.slice.note ?? c.note;
+  messages = visibleMessages(c, c.current, false);
   messageLimit = 100;
   el('empty').hidden = true;
   el('conversation-content').hidden = false;
   el('conversation-title').textContent = c.title;
   el('conversation-meta').textContent =
-    `Created ${date(c.created)} · Updated ${date(c.updated)} · ${c.leaves.length} branch${c.leaves.length === 1 ? '' : 'es'}`;
-  const choices = [...new Set([c.current, ...c.leaves])].filter((id): id is string => id !== null);
-  select('branch').replaceChildren(
-    ...choices.map((id, i) => {
-      const option = document.createElement('option');
-      option.value = id;
-      const tail = c.nodes[id];
-      option.textContent = `${id === c.current ? 'Current path' : `Branch ${i + 1}`} · ${tail?.role ?? 'unknown'} · ${(tail?.text ?? '').replace(/\s+/g, ' ').slice(0, 65)}`;
-      return option;
-    }),
-  );
-  select('branch').value = leaf ?? '';
-  resetMessages(saved ? new Set(saved.slice.messages.map((m) => m.id)) : undefined);
-  renderLibrary();
-}
-function resetMessages(restore?: Set<string>) {
-  if (!active) return;
-  messages = visibleMessages(active, leaf, input('extras').checked);
-  selected = restore ?? new Set(messages.map((m) => m.id));
-  messageLimit = 100;
-  input('range-start').value = '1';
-  input('range-end').value = String(messages.length);
-  input('range-start').max = input('range-end').max = String(messages.length);
+    `Created ${date(c.created)} · Updated ${date(c.updated)} · ${messages.length} visible messages on the current path${c.leaves.length > 1 ? ` · ${c.leaves.length - 1} alternate branches omitted` : ''}`;
   renderMessages();
+  renderLibrary();
 }
 function renderMessages() {
   el('messages').innerHTML = messages
     .slice(0, messageLimit)
     .map(
       (m, i) =>
-        `<article class="message ${m.role === 'user' ? 'user' : 'assistant'}"><div class="message-author"><label><input type="checkbox" data-message="${escape(m.id)}" ${selected.has(m.id) ? 'checked' : ''} aria-label="Include message ${i + 1}"><span>${i + 1}. ${escape(m.role === 'user' ? 'You' : m.role === 'assistant' ? 'ChatGPT' : m.role)}${m.hidden ? ' · hidden in original' : ''}</span></label><span class="hint">${escape(date(m.time))}</span></div><div class="prose">${renderMarkdown(m.text)}</div>${m.attachments.length ? `<p class="attachment">Attachment references · ${m.attachments.map(escape).join(', ')}<br>Original files must be attached separately.</p>` : ''}</article>`,
+        `<article class="message ${m.role === 'user' ? 'user' : 'assistant'}"><div class="message-author"><strong>${i + 1}. ${escape(m.role === 'user' ? 'You' : 'ChatGPT')}</strong><span class="hint">${escape(date(m.time))}</span></div><div class="prose">${renderMarkdown(m.text)}</div>${m.attachments.length ? `<p class="attachment">Attachment references · ${m.attachments.map(escape).join(', ')}<br>Original files must be attached separately.</p>` : ''}</article>`,
     )
     .join('');
   if (!messages.length)
-    el('messages').textContent =
-      'No visible messages on this path. Choose a different branch or show hidden messages.';
+    el('messages').textContent = 'No visible user or assistant messages on the current path.';
   for (const link of el('messages').querySelectorAll('a')) {
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
   }
   el('more-messages').hidden = messageLimit >= messages.length;
-  updateSelection();
 }
-function currentSlice(): Slice | null {
-  if (!active) return null;
+function selectedConversations(): Slice[] {
+  return (archive?.conversations ?? [])
+    .filter((c) => markedConversations.has(c.id))
+    .map(wholeConversation);
+}
+function prepareExport(format = select('export-format').value): PreparedExport | null {
+  const conversations = selectedConversations();
+  if (!conversations.length) return null;
+  const json = format === 'json';
   return {
-    conversation: active,
-    messages: messages.filter((m) => selected.has(m.id)),
-    branchId: leaf,
-    total: messages.length,
-    note: el<HTMLTextAreaElement>('note').value,
+    text: json ? portableJson(conversations) : combinedMarkdown(conversations),
+    name: `${conversations.length === 1 ? filename(conversations[0].conversation.title) : 'selected-conversations'}.${json ? 'json' : 'md'}`,
+    type: json ? 'application/json' : 'text/markdown;charset=utf-8',
+    format,
   };
 }
 function updateSelection() {
-  el('selection-count').textContent = `${selected.size} of ${messages.length} messages selected`;
-  button('preview').disabled = !active || selected.size === 0;
-  const slice = currentSlice();
-  if (slice) remembered.set(slice.conversation.id, { slice, extras: input('extras').checked });
-  el('export-size').textContent =
-    slice && slice.messages.length
-      ? `${slice.messages.length} messages · approximately ${bytes(new TextEncoder().encode(markdown(slice)).length)} as Markdown. Review sensitive content before sharing.`
-      : 'Select at least one message to prepare a download.';
+  const count = markedConversations.size;
+  el('selection-count').textContent = `${count} conversation${count === 1 ? '' : 's'} selected`;
+  button('select-none').disabled = !count;
+  button('preview').disabled = button('batch-export').disabled = !count;
+  const text = combinedMarkdown(selectedConversations());
+  const size = new TextEncoder().encode(text).length;
+  el('export-size').textContent = count
+    ? `${count} whole conversation${count === 1 ? '' : 's'} · ${bytes(size)} as Markdown. Review before sharing.`
+    : 'Select at least one conversation to prepare an export.';
+  button('copy-markdown').hidden = select('export-format').value !== 'md' || !canCopyMarkdown(text);
+  el('clipboard-hint').hidden =
+    !count || select('export-format').value !== 'md' || canCopyMarkdown(text);
+  el('clipboard-hint').textContent =
+    'Markdown exceeds the 32 KiB clipboard limit. Download the file instead.';
+  el('export-status').textContent = '';
+}
+function showReview(prepared: PreparedExport) {
+  review = prepared;
+  el<HTMLTextAreaElement>('review-text').value = prepared.text;
+  el('review-info').textContent =
+    `${markedConversations.size} whole conversations · ${bytes(new TextEncoder().encode(prepared.text).length)} · ${prepared.name}`;
+  button('copy-review').hidden = prepared.format !== 'md' || !canCopyMarkdown(prepared.text);
+  el('review-status').textContent = '';
+  if (!el<HTMLDialogElement>('review').open) el<HTMLDialogElement>('review').showModal();
+}
+async function copyMarkdown(prepared: PreparedExport, fromReview: boolean) {
+  if (prepared.format !== 'md' || !canCopyMarkdown(prepared.text)) return;
+  try {
+    await navigator.clipboard.writeText(prepared.text);
+    el(fromReview ? 'review-status' : 'export-status').textContent =
+      'Copied Markdown to clipboard. Paste it into your new conversation.';
+  } catch {
+    showReview(prepared);
+    el<HTMLTextAreaElement>('review-text').focus();
+    el<HTMLTextAreaElement>('review-text').select();
+    el('review-status').textContent =
+      'Clipboard access is unavailable. The Markdown is selected; use your browser’s Copy command or download the file.';
+  }
 }
 function renderRelatedOptions() {
   select('related-select').replaceChildren(
@@ -359,31 +369,30 @@ button('clear').onclick = () => {
   stopImport();
   archive = null;
   active = null;
-  leaf = null;
   messages = [];
-  selected.clear();
   markedConversations.clear();
   searchIndex.clear();
-  remembered.clear();
   review = null;
   el<HTMLTextAreaElement>('review-text').value = '';
   el<HTMLDialogElement>('review').close();
-  el<HTMLTextAreaElement>('note').value = '';
   el('archive-count').textContent = 'No archive loaded';
   el('conversation-content').hidden = true;
   el('messages').replaceChildren();
   el('empty').hidden = false;
   el('conversation-title').textContent = '';
   el('conversation-meta').textContent = '';
-  select('branch').replaceChildren();
   el('warnings').replaceChildren();
   el('validation').hidden = true;
   button('clear').hidden = true;
+  el('review-status').textContent = '';
+  input('search').value = '';
+  select('export-format').value = 'md';
+  el<HTMLDetailsElement>('workspace').open = false;
+  el<HTMLDetailsElement>('export-panel').open = false;
   error();
   renderLibrary();
   renderRelatedOptions();
-  updateSelection();
-  status('Archive cleared from this app. Downloaded files remain on your device.');
+  status('Archive cleared from this app. Downloaded files and copied text remain on your device.');
   input('files').focus();
 };
 let searchTimer: ReturnType<typeof setTimeout>;
@@ -394,11 +403,6 @@ input('search').addEventListener('input', () => {
     renderLibrary();
   }, 150);
 });
-for (const id of ['filter', 'sort'])
-  select(id).onchange = () => {
-    listLimit = 100;
-    renderLibrary();
-  };
 el('conversation-list').addEventListener('click', (e) => {
   const target = (e.target as HTMLElement).closest<HTMLElement>('[data-open]');
   if (target?.dataset.open) openConversation(target.dataset.open);
@@ -408,118 +412,49 @@ el('conversation-list').addEventListener('change', (e) => {
   if (!target.dataset.mark) return;
   if (target.checked) markedConversations.add(target.dataset.mark);
   else markedConversations.delete(target.dataset.mark);
-  el('batch-count').textContent =
-    `${markedConversations.size} conversations marked for batch export`;
-  button('batch-export').disabled = !markedConversations.size;
+  updateSelection();
 });
 button('more-conversations').onclick = () => {
   listLimit += 100;
   renderLibrary();
 };
-select('branch').onchange = () => {
-  leaf = select('branch').value;
-  resetMessages();
-  status('Branch changed. All visible messages on this path are selected.');
-};
-input('extras').onchange = () => {
-  resetMessages();
-  status('Visibility changed. All currently visible messages are selected.');
-};
-el('messages').addEventListener('change', (e) => {
-  const target = e.target as HTMLInputElement;
-  const id = target.dataset.message;
-  if (!id) return;
-  if (target.checked) selected.add(id);
-  else selected.delete(id);
-  updateSelection();
-});
 button('more-messages').onclick = () => {
   messageLimit += 100;
   renderMessages();
 };
 button('select-all').onclick = () => {
-  selected = new Set(messages.map((m) => m.id));
-  renderMessages();
+  for (const c of sortedConversations()) markedConversations.add(c.id);
+  renderLibrary();
 };
 button('select-none').onclick = () => {
-  selected.clear();
-  renderMessages();
+  markedConversations.clear();
+  renderLibrary();
 };
-button('select-last').onclick = () => {
-  selected = new Set(messages.slice(-10).map((m) => m.id));
-  renderMessages();
-  status(
-    'Last 10 messages selected. Review & download shows the exact selected tail; Show more messages expands the history.',
-  );
-};
-button('apply-range').onclick = () => {
-  const from = Number(input('range-start').value);
-  const to = Number(input('range-end').value);
-  if (
-    !Number.isInteger(from) ||
-    !Number.isInteger(to) ||
-    from < 1 ||
-    to < from ||
-    to > messages.length
-  ) {
-    error(
-      `Enter a message range from 1 through ${messages.length}, with the start before the end.`,
-    );
-    return;
-  }
-  error();
-  selected = new Set(messages.slice(from - 1, to).map((m) => m.id));
-  renderMessages();
-  status(`Selected messages ${from} through ${to}.`);
-};
-el('note').addEventListener('input', updateSelection);
+select('export-format').onchange = updateSelection;
 button('preview').onclick = () => {
-  const slice = currentSlice();
-  if (!slice?.messages.length) return;
-  const json = select('export-format').value === 'json';
-  const text = json ? portableJson([slice]) : markdown(slice);
-  review = {
-    text,
-    name: `${filename(slice.conversation.title)}.${json ? 'json' : 'md'}`,
-    type: json ? 'application/json' : 'text/markdown;charset=utf-8',
-  };
-  el<HTMLTextAreaElement>('review-text').value = text;
-  el('review-info').textContent =
-    `${slice.messages.length} selected messages · ${bytes(new TextEncoder().encode(text).length)} · ${review.name}`;
-  el<HTMLDialogElement>('review').showModal();
+  const prepared = prepareExport();
+  if (prepared) showReview(prepared);
 };
 button('close-review').onclick = () => {
   el<HTMLDialogElement>('review').close();
   review = null;
   el<HTMLTextAreaElement>('review-text').value = '';
+  el('review-status').textContent = '';
 };
 button('download').onclick = () => {
   if (review) download(review.text, review.name, review.type);
 };
+button('copy-markdown').onclick = () => {
+  const prepared = prepareExport('md');
+  if (prepared) void copyMarkdown(prepared, false);
+};
+button('copy-review').onclick = () => {
+  if (review) void copyMarkdown(review, true);
+};
 button('batch-export').onclick = () => {
-  const slices = (archive?.conversations ?? [])
-    .filter((c) => markedConversations.has(c.id))
-    .map((c): Slice => {
-      const chosen = remembered.get(c.id)?.slice;
-      return (
-        chosen ?? {
-          conversation: c,
-          branchId: c.current,
-          messages: visibleMessages(c, c.current, false),
-          total: visibleMessages(c, c.current, false).length,
-          note: c.note,
-        }
-      );
-    })
-    .filter((s) => s.messages.length);
-  if (!slices.length) {
-    error('The marked conversations have no selected visible messages.');
-    return;
-  }
-  download(exportZip(slices), 'cgptim-conversations.zip', 'application/zip');
-  status(
-    `Downloaded ${slices.length} conversations. Your saved branch, message selections, and notes are included. Unvisited conversations use the current visible path.`,
-  );
+  const conversations = selectedConversations();
+  if (conversations.length)
+    download(exportZip(conversations), 'cgptim-conversations.zip', 'application/zip');
 };
 select('related-select').onchange = renderRelated;
 button('download-related').onclick = () => {

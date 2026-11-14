@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { Zip, ZipDeflate, strToU8, unzipSync, zipSync } from 'fflate';
 import { LIMITS, importFiles, parseDocuments, readZip } from '../src/import';
 import { branch, visibleMessages } from '../src/model';
-import { exportZip, filename, markdown, portableJson } from '../src/export';
+import {
+  combinedMarkdown,
+  wholeConversation,
+  exportZip,
+  filename,
+  markdown,
+  portableJson,
+} from '../src/export';
 
 const message = (role: string, text: unknown, parent: string | null, hidden = false) => ({
   parent,
@@ -217,5 +224,27 @@ describe('selective context exports', () => {
     ]);
     expect(filename('💬')).toBe('conversation');
     expect(filename('x'.repeat(100))).toHaveLength(80);
+  });
+});
+
+describe('whole-conversation packaging', () => {
+  it('includes every visible message on the current path, regardless of preview pagination', () => {
+    const conversation = parse([fixture()]).conversations[0];
+    const packaged = wholeConversation(conversation);
+    expect(packaged.messages.map((message) => message.id)).toEqual(['prompt', 'answer']);
+    expect(packaged.total).toBe(2);
+    expect(packaged.branchId).toBe('answer');
+    expect(markdown(packaged)).toContain('Selected 2 of 2');
+    expect(markdown(packaged)).not.toContain('Internal system context');
+    expect(markdown(packaged)).not.toContain('Alternate answer');
+  });
+  it('combines exactly the selected conversations and preserves imported notes', () => {
+    const conversation = parse([fixture()]).conversations[0];
+    conversation.note = 'Keep this context.';
+    const packaged = wholeConversation(conversation);
+    expect(combinedMarkdown([packaged])).toBe(markdown(packaged));
+    expect(combinedMarkdown([packaged])).toContain('Keep this context.');
+    expect(combinedMarkdown([])).toBe('');
+    expect(JSON.parse(portableJson([packaged])).conversations).toHaveLength(1);
   });
 });
