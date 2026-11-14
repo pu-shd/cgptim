@@ -207,10 +207,10 @@ footer {
   cursor: not-allowed;
 }
 .file-button input:disabled,
-.dropzone[aria-disabled='true'] {
+.dropzone[data-drop-disabled='true'] {
   cursor: not-allowed;
 }
-.dropzone[aria-disabled='true'] {
+.dropzone[data-drop-disabled='true'] {
   border-style: solid;
 }
 .file-button:focus-within {

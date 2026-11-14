@@ -115,7 +115,7 @@ test('invalid imports leave all import controls available for retry', async ({ p
   await expect(page.getByRole('alert')).toContainText('Invalid JSON');
   await expect(page.locator('#files')).toBeEnabled();
   await expect(page.locator('#demo')).toBeEnabled();
-  await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.locator('#dropzone')).toHaveAttribute('data-drop-disabled', 'false');
   await upload(page);
   await expect(page.getByRole('alert')).toBeHidden();
   await expect(page.locator('#files')).toBeDisabled();
@@ -144,14 +144,24 @@ for (const source of ['file', 'sample']) {
   test(`a loaded ${source} locks every import route until Clear`, async ({ page }) => {
     await expect(page.locator('#files')).toBeEnabled();
     await expect(page.locator('#demo')).toBeEnabled();
+    await expect(page.locator('#choose-files')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeHidden();
     if (source === 'file') await upload(page);
     else await page.locator('#demo').click();
     const title = await page.locator('#conversation-title').textContent();
     const importStatus = await page.locator('#status').textContent();
     await expect(page.locator('#files')).toBeDisabled();
     await expect(page.locator('#demo')).toBeDisabled();
+    await expect(page.locator('#choose-files')).toBeHidden();
     await expect(page.locator('#choose-files')).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'true');
+    await expect(
+      page.locator('#dropzone').getByRole('button', { name: 'Clear', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator('#dropzone').getByRole('button', { name: 'Clear', exact: true }),
+    ).toBeEnabled();
+    await expect(page.locator('.import-panel .section-heading button')).toHaveCount(0);
+    await expect(page.locator('#dropzone')).toHaveAttribute('data-drop-disabled', 'true');
     await expect(page.locator('#import-hint')).toContainText('Clear');
     await page.evaluate(() => {
       const NativeWorker = window.Worker;
@@ -180,7 +190,9 @@ for (const source of ['file', 'sample']) {
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(page.locator('#files')).toBeEnabled();
     await expect(page.locator('#demo')).toBeEnabled();
-    await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'false');
+    await expect(page.locator('#choose-files')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeHidden();
+    await expect(page.locator('#dropzone')).toHaveAttribute('data-drop-disabled', 'false');
     await dropArchive(page, replacement);
     await expect(page.locator('#conversation-title')).toHaveText('Replacement conversation');
     await expect(page.locator('#files')).toBeDisabled();
@@ -223,7 +235,7 @@ test('an import in progress blocks replacement and cancellation re-enables impor
   await expect(page.locator('html')).toHaveAttribute('data-worker-stopped', 'true');
   await expect(page.locator('#files')).toBeEnabled();
   await expect(page.locator('#demo')).toBeEnabled();
-  await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.locator('#dropzone')).toHaveAttribute('data-drop-disabled', 'false');
 });
 
 test('exports a complete selected conversation as Markdown and round-trips JSON', async ({

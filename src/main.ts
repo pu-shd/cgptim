@@ -73,7 +73,9 @@ function syncImportControls() {
   input('files').disabled = unavailable;
   button('demo').disabled = unavailable;
   el('choose-files').setAttribute('aria-disabled', String(unavailable));
-  el('dropzone').setAttribute('aria-disabled', String(unavailable));
+  el('choose-files').hidden = loaded;
+  button('clear').hidden = !loaded;
+  el('dropzone').setAttribute('data-drop-disabled', String(unavailable));
   if (unavailable) el('dropzone').classList.remove('dragging');
   el('import-hint').textContent = loaded
     ? 'An export is open. Clear it to open another file or try the sample.'
@@ -158,7 +160,6 @@ function loadArchive(data: Archive) {
   button('chat-tab').click();
   el('archive-count').textContent =
     `${data.conversations.length} conversations · ${data.related.length} related data files`;
-  button('clear').hidden = false;
   el('warnings').replaceChildren(
     ...data.warnings.map((w) => {
       const li = document.createElement('li');
@@ -404,7 +405,6 @@ button('clear').onclick = () => {
   el('conversation-meta').textContent = '';
   el('warnings').replaceChildren();
   el('validation').hidden = true;
-  button('clear').hidden = true;
   el('review-status').textContent = '';
   input('search').value = '';
   select('export-format').value = 'md';
