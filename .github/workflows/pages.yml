@@ -20,6 +20,7 @@ jobs:
         run: docker-compose run --build --rm tests
       - name: Build the deployment artifact from the validated source
         run: |
+          set -euo pipefail
           docker build --target build -t cgptim-build .
           container=$(docker create cgptim-build)
           trap 'docker rm "$container" >/dev/null' EXIT
