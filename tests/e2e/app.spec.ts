@@ -106,21 +106,124 @@ test('uploads ZIP in a worker and shows related settings and binary inventory', 
   await expect(page.locator('#inventory')).toContainText('export/index.html');
 });
 
-test('invalid imports keep the previous archive and its conversation selection', async ({
-  page,
-}) => {
-  await upload(page);
-  await selectSynthetic(page);
+test('invalid imports leave all import controls available for retry', async ({ page }) => {
   await page.locator('#files').setInputFiles({
     name: 'broken.json',
     mimeType: 'application/json',
     buffer: Buffer.from('{broken'),
   });
   await expect(page.getByRole('alert')).toContainText('Invalid JSON');
-  await expect(page.locator('#conversation-title')).toHaveText('Synthetic conversation');
-  await expect(
-    page.getByRole('checkbox', { name: 'Select Synthetic conversation', exact: true }),
-  ).toBeChecked();
+  await expect(page.locator('#files')).toBeEnabled();
+  await expect(page.locator('#demo')).toBeEnabled();
+  await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'false');
+  await upload(page);
+  await expect(page.getByRole('alert')).toBeHidden();
+  await expect(page.locator('#files')).toBeDisabled();
+});
+
+async function dropArchive(page: Page, data: unknown) {
+  return page.evaluate((data) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([JSON.stringify(data)], 'conversations.json', { type: 'application/json' }),
+    );
+    const zone = document.getElementById('dropzone')!;
+    for (const type of ['dragenter', 'dragover'])
+      zone.dispatchEvent(
+        new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }),
+      );
+    const state = { effect: transfer.dropEffect, dragging: zone.classList.contains('dragging') };
+    zone.dispatchEvent(
+      new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }),
+    );
+    return state;
+  }, data);
+}
+
+for (const source of ['file', 'sample']) {
+  test(`a loaded ${source} locks every import route until Clear`, async ({ page }) => {
+    await expect(page.locator('#files')).toBeEnabled();
+    await expect(page.locator('#demo')).toBeEnabled();
+    if (source === 'file') await upload(page);
+    else await page.locator('#demo').click();
+    const title = await page.locator('#conversation-title').textContent();
+    const importStatus = await page.locator('#status').textContent();
+    await expect(page.locator('#files')).toBeDisabled();
+    await expect(page.locator('#demo')).toBeDisabled();
+    await expect(page.locator('#choose-files')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('#import-hint')).toContainText('Clear');
+    await page.evaluate(() => {
+      const NativeWorker = window.Worker;
+      window.Worker = class extends NativeWorker {
+        constructor(url: string | URL, options?: WorkerOptions) {
+          super(url, options);
+          document.documentElement.dataset.unexpectedWorker = 'started';
+        }
+      };
+    });
+    const replacement = conversation('Replacement answer').map((c) => ({
+      ...c,
+      title: 'Replacement conversation',
+    }));
+    // Native controls are disabled, and handlers must also reject synthetic events.
+    await page.locator('#files').setInputFiles({
+      name: 'conversations.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(replacement)),
+    });
+    await page.locator('#demo').dispatchEvent('click');
+    expect(await dropArchive(page, replacement)).toEqual({ effect: 'none', dragging: false });
+    await expect(page.locator('html')).not.toHaveAttribute('data-unexpected-worker');
+    await expect(page.locator('#conversation-title')).toHaveText(title!);
+    await expect(page.locator('#status')).toHaveText(importStatus!);
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(page.locator('#files')).toBeEnabled();
+    await expect(page.locator('#demo')).toBeEnabled();
+    await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'false');
+    await dropArchive(page, replacement);
+    await expect(page.locator('#conversation-title')).toHaveText('Replacement conversation');
+    await expect(page.locator('#files')).toBeDisabled();
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await page.locator('#demo').click();
+    await expect(page.locator('#conversation-title')).toHaveText('A small garden, a fresh start');
+  });
+}
+
+test('an import in progress blocks replacement and cancellation re-enables imports', async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    Object.defineProperty(window, 'Worker', {
+      value: class {
+        constructor() {
+          document.documentElement.dataset.workerStarts = String(
+            Number(document.documentElement.dataset.workerStarts ?? 0) + 1,
+          );
+        }
+        postMessage() {}
+        terminate() {
+          document.documentElement.dataset.workerStopped = 'true';
+        }
+      },
+    });
+  });
+  await page.locator('#files').setInputFiles({
+    name: 'conversations.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(conversation())),
+  });
+  await expect(page.locator('#files')).toBeDisabled();
+  await expect(page.locator('#demo')).toBeDisabled();
+  expect(await dropArchive(page, conversation())).toEqual({ effect: 'none', dragging: false });
+  await page.locator('#demo').dispatchEvent('click');
+  await expect(page.locator('html')).toHaveAttribute('data-worker-starts', '1');
+  await expect(page.locator('#archive-count')).toHaveText('No archive loaded');
+  await page.getByRole('button', { name: 'Cancel import', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-worker-stopped', 'true');
+  await expect(page.locator('#files')).toBeEnabled();
+  await expect(page.locator('#demo')).toBeEnabled();
+  await expect(page.locator('#dropzone')).toHaveAttribute('aria-disabled', 'false');
 });
 
 test('exports a complete selected conversation as Markdown and round-trips JSON', async ({
@@ -142,6 +245,7 @@ test('exports a complete selected conversation as Markdown and round-trips JSON'
   const json = await page.locator('#review-text').inputValue();
   await expect(page.locator('#copy-review')).toBeHidden();
   await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
   await page.locator('#files').setInputFiles({
     name: 'conversation.json',
     mimeType: 'application/json',

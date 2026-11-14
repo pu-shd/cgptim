@@ -67,27 +67,40 @@ function download(data: string | Uint8Array, name: string, type: string) {
     'Download prepared. Attach the file to a new ChatGPT conversation and use the continuation prompt.',
   );
 }
+function syncImportControls() {
+  const loaded = archive !== null;
+  const unavailable = loaded || worker !== null;
+  input('files').disabled = unavailable;
+  button('demo').disabled = unavailable;
+  el('choose-files').setAttribute('aria-disabled', String(unavailable));
+  el('dropzone').setAttribute('aria-disabled', String(unavailable));
+  if (unavailable) el('dropzone').classList.remove('dragging');
+  el('import-hint').textContent = loaded
+    ? 'An export is open. Clear it to open another file or try the sample.'
+    : worker !== null
+      ? 'Reading your export…'
+      : 'Drop an export ZIP, or choose one or more JSON files.';
+}
 function stopImport() {
   worker?.terminate();
   worker = null;
   if (importTimer) clearTimeout(importTimer);
   importTimer = null;
   button('cancel').hidden = true;
-  input('files').disabled = false;
-  button('demo').disabled = false;
   el('dropzone').removeAttribute('aria-busy');
+  syncImportControls();
 }
 function openFiles(files: File[]) {
+  if (archive !== null || worker !== null) return;
   stopImport();
   error();
   if (!files.length) return;
   status('Opening your files locally…');
-  input('files').disabled = true;
-  button('demo').disabled = true;
   button('cancel').hidden = false;
   el('dropzone').setAttribute('aria-busy', 'true');
   try {
     worker = new Worker(new URL('./import.worker.ts', import.meta.url), { type: 'module' });
+    syncImportControls();
     worker.onmessage = (
       event: MessageEvent<{ type: string; message: string; archive: Archive }>,
     ) => {
@@ -98,7 +111,7 @@ function openFiles(files: File[]) {
       } else {
         stopImport();
         error(event.data.message);
-        status('Import failed. Any previously opened archive is still available.');
+        status('Import failed. Choose another file or try the sample.');
       }
     };
     worker.onerror = () => {
@@ -120,6 +133,7 @@ function openFiles(files: File[]) {
 }
 function loadArchive(data: Archive) {
   archive = data;
+  syncImportControls();
   review = null;
   el<HTMLTextAreaElement>('review-text').value = '';
   el<HTMLDialogElement>('review').close();
@@ -350,9 +364,14 @@ function renderRelated() {
 }
 
 input('files').addEventListener('change', () => openFiles(Array.from(input('files').files ?? [])));
-for (const event of ['dragover', 'dragenter'])
+for (const event of ['dragover', 'dragenter'] as const)
   el('dropzone').addEventListener(event, (e) => {
     e.preventDefault();
+    if (archive !== null || worker !== null) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     el('dropzone').classList.add('dragging');
   });
 el('dropzone').addEventListener('dragleave', () => el('dropzone').classList.remove('dragging'));
@@ -363,11 +382,13 @@ el('dropzone').addEventListener('drop', (e) => {
 });
 button('cancel').onclick = () => {
   stopImport();
-  status('Import canceled. Any previously opened archive is still available.');
+  status('Import canceled. Choose files or try the sample.');
 };
 button('clear').onclick = () => {
   stopImport();
   archive = null;
+  input('files').value = '';
+  syncImportControls();
   active = null;
   messages = [];
   markedConversations.clear();
@@ -513,6 +534,7 @@ button('copy-prompt').onclick = async () => {
   }
 };
 button('demo').onclick = () => {
+  if (archive !== null || worker !== null) return;
   error();
   const message = (role: string, text: string, parent: string | null) => ({
     parent,
@@ -594,8 +616,9 @@ button('demo').onclick = () => {
     ]),
   );
   status(
-    'Sample archive opened. These are fictional conversations. Choose your own files whenever you are ready.',
+    'Sample archive opened. These are fictional conversations. Clear the sample before opening your own files.',
   );
 };
+syncImportControls();
 renderLibrary();
 updateSelection();

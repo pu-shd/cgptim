@@ -4,7 +4,7 @@
 
 In an eligible ChatGPT account, use **Settings → Data controls → Export data**. Download the export ZIP when it is ready. See [OpenAI's export instructions](https://help.openai.com/en/articles/7260999-exporting-your-chatgpt-history-and-data) for current availability and details.
 
-Choose the ZIP in cgptim, or extract it and select `conversations.json` alongside `user_settings.json`, `user.json`, `shared_conversations.json`, `library_files.json`, `export_manifest.json`, and other JSON files you want to inspect. You can also drop files on the import area. Choosing new files replaces the currently opened archive after validation succeeds. A failed import keeps your previous archive available.
+Choose the ZIP in cgptim, or extract it and select `conversations.json` alongside `user_settings.json`, `user.json`, `shared_conversations.json`, `library_files.json`, `export_manifest.json`, and other JSON files you want to inspect. You can also drop files on the import area. Once an export or sample is open, dropping files, choosing files, and trying the sample are disabled. Use **Clear** before opening anything else. These import routes are also disabled while a file is being read; **Cancel import** makes them available again. A failed import leaves them enabled so you can retry.
 
 An HTML-only export is not supported. Exported HTML is never executed. Non-JSON files inside a ZIP appear in the file inventory but are not rendered. Folder upload is not required; selecting the original ZIP is easiest.
 
@@ -24,7 +24,7 @@ Markdown is formatted locally. Embedded images, scripts, HTML media, forms, and 
 
 ## Select and repackage whole conversations
 
-Use the sidebar checkboxes to select one or more whole conversations. **Select all** includes every conversation matching the current search, including results beyond the first 100 displayed. **Clear selection** unchecks every conversation, including ones hidden by the search. Selections persist while you browse or search within the opened export. Opening a replacement export or using **Clear** resets them.
+Use the sidebar checkboxes to select one or more whole conversations. **Select all** includes every conversation matching the current search, including results beyond the first 100 displayed. **Clear selection** unchecks every conversation, including ones hidden by the search. Selections persist while you browse or search within the opened export. Use **Clear** before opening another export; clearing resets the selections.
 
 Step 3 shows the conversation count and combined Markdown size. It offers:
 

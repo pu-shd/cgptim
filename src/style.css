@@ -202,6 +202,17 @@ footer {
   white-space: nowrap;
   overflow: hidden;
 }
+.file-button[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.file-button input:disabled,
+.dropzone[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+.dropzone[aria-disabled='true'] {
+  border-style: solid;
+}
 .file-button:focus-within {
   outline: 3px solid #e7a840;
   outline-offset: 3px;

@@ -2,7 +2,7 @@
 
 ## Static app
 
-Vite builds TypeScript and CSS into `dist/`. No server application, database, migration, cloud credentials, or Python packages are required. A Web Worker reads uploaded `File` objects, decompresses JSON from ZIPs with fflate, validates and normalizes it, and sends a structured archive to the UI. The worker reports progress, supports cancellation through termination, and is stopped after success/error or a two-minute timeout.
+Vite builds TypeScript and CSS into `dist/`. No server application, database, migration, cloud credentials, or Python packages are required. A Web Worker reads uploaded `File` objects, decompresses JSON from ZIPs with fflate, validates and normalizes it, and sends a structured archive to the UI. The worker reports progress, supports cancellation through termination, and is stopped after success/error or a two-minute timeout. All import routes are disabled during an import and while an archive is open. Event handlers also reject replacement attempts; clearing the archive re-enables importing, as do cancellation and failure when no archive is loaded.
 
 `src/model.ts` defines the normalized archive and iterative branch traversal. `src/import.ts` is the trust boundary. `src/export.ts` creates Markdown, schema-versioned portable JSON, and batch ZIPs. `src/render.ts` formats Markdown with marked and an explicit DOMPurify allowlist. `src/main.ts` controls the UI and in-memory state. Conversation checkboxes select complete visible current paths, independent of the read-only preview pagination. `src/clipboard.ts` applies a 32 KiB UTF-8 limit to Markdown clipboard exports; denied writes fall back to selected review text. Steps 2 and 3 are native disclosure elements, closed before loading data and after clearing it.
 

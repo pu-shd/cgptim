@@ -30,11 +30,11 @@
           <h2 id="import-heading"><span class="step">1</span> Open your export</h2>
           <button id="clear" class="secondary small" hidden>Clear</button>
         </div>
-        <div id="dropzone" class="dropzone">
+        <div id="dropzone" class="dropzone" aria-disabled="false">
           <div>
-            <p>Drop an export ZIP, or choose one or more JSON files.</p>
+            <p id="import-hint">Drop an export ZIP, or choose one or more JSON files.</p>
           </div>
-          <label class="file-button" for="files"
+          <label id="choose-files" class="file-button" for="files" aria-disabled="false"
             >Choose files<input id="files" type="file" accept=".zip,.json" multiple
           /></label>
         </div>
