@@ -7,7 +7,7 @@ A local-first viewer for ChatGPT data exports. Select whole conversations and co
 ## What you can do
 
 - Open an export ZIP, multiple extracted JSON files, or a previously exported cgptim JSON file.
-- Search conversation titles and visible message text, and read Markdown, tables, and code.
+- Search conversation titles and visible message text, and read Markdown, tables, and code. ChatGPT citations become numbered source links in previews and Markdown exports.
 - Select whole conversations using checkboxes. The preview is read-only; exports include every visible user and assistant message on each selected conversation's current path.
 - Review and download combined Markdown or portable JSON, or download a ZIP with separate files.
 - Copy Markdown up to 32 KiB directly to the clipboard. If clipboard access is denied, the app selects the text for manual copying.

@@ -227,7 +227,7 @@ function renderMessages() {
     .slice(0, messageLimit)
     .map(
       (m, i) =>
-        `<article class="message ${m.role === 'user' ? 'user' : 'assistant'}"><div class="message-author"><strong>${i + 1}. ${escape(m.role === 'user' ? 'You' : 'ChatGPT')}</strong><span class="hint">${escape(date(m.time))}</span></div><div class="prose">${renderMarkdown(m.text)}</div>${m.attachments.length ? `<p class="attachment">Attachment references · ${m.attachments.map(escape).join(', ')}<br>Original files must be attached separately.</p>` : ''}</article>`,
+        `<article class="message ${m.role === 'user' ? 'user' : 'assistant'}"><div class="message-author"><strong>${i + 1}. ${escape(m.role === 'user' ? 'You' : 'ChatGPT')}</strong><span class="hint">${escape(date(m.time))}</span></div><div class="prose">${renderMarkdown(m.text, m.citations)}</div>${m.attachments.length ? `<p class="attachment">Attachment references · ${m.attachments.map(escape).join(', ')}<br>Original files must be attached separately.</p>` : ''}</article>`,
     )
     .join('');
   if (!messages.length)

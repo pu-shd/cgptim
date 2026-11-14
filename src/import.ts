@@ -1,3 +1,4 @@
+import { extractCitations } from './citations';
 import { Unzip, UnzipInflate, strFromU8 } from 'fflate';
 import { isRecord, stamp, type Archive, type Conversation, type Message } from './model';
 
@@ -68,6 +69,7 @@ function normalize(raw: unknown, index: number, warnings: string[]): Conversatio
       parent: typeof value.parent === 'string' ? value.parent : null,
       role: string(author.role, 'unknown'),
       text: content.text,
+      citations: extractCitations(metadata),
       attachments: [...new Set(content.attachments)],
       time: stamp(msg.create_time),
       hidden:
@@ -137,6 +139,7 @@ function portable(data: Record<string, unknown>, warnings: string[]): Conversati
           create_time: msg.time,
           metadata: {
             is_visually_hidden_from_conversation: msg.hidden === true,
+            citations: msg.citations,
             attachments: Array.isArray(msg.attachments)
               ? msg.attachments
                   .filter((a): a is string => typeof a === 'string')

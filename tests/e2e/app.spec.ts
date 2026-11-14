@@ -431,3 +431,103 @@ test('ships production CSP and distributable license notices', async ({ page, re
   expect(response.ok()).toBe(true);
   expect(await response.text()).toContain('Copyright (c) 2025 PrincetonUniversity');
 });
+
+test('exported citation markers render as safe numbered links and survive JSON reopening', async ({
+  page,
+}) => {
+  const first = '\uE200genui\uE202{"citation":{"ref":"turn2view0"}}\uE201';
+  const second = '\uE200cite\uE202turn2view1\uE201';
+  const missing = '\uE200genui\uE202{"citation":{"ref":"turn9view9"}}\uE201';
+  const data = conversation(`A supported claim ${first}. Another ${second}. Missing ${missing}.`);
+  Object.assign(data[0].mapping.a.message, {
+    metadata: {
+      content_references: [
+        {
+          type: 'grouped_webpages',
+          items: [
+            {
+              title: 'Fictional source one',
+              url: 'https://example.invalid/one',
+              refs: [{ turn_index: 2, ref_type: 'view', ref_index: 0 }],
+            },
+          ],
+        },
+        {
+          type: 'grouped_webpages',
+          items: [
+            {
+              title: '[unsafe](javascript:alert(1)) <img src=x onerror=alert(1)>',
+              url: 'https://example.invalid/two',
+              refs: [{ turn_index: 2, ref_type: 'view', ref_index: 1 }],
+            },
+          ],
+        },
+        {
+          type: 'grouped_webpages',
+          items: [
+            {
+              title: 'Invalid source',
+              url: 'javascript:alert(1)',
+              refs: [{ turn_index: 9, ref_type: 'view', ref_index: 9 }],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  const external: string[] = [];
+  page.on('request', (r) => {
+    if (/^https?:/.test(r.url()) && new URL(r.url()).origin !== 'http://127.0.0.1:4173')
+      external.push(r.url());
+  });
+  await upload(page, data);
+  await expect(page.locator('#messages')).not.toContainText('\uE200');
+  await expect(page.locator('#messages')).toContainText('[source unavailable]');
+  const one = page.locator('#messages a').filter({ hasText: /^1$/ });
+  await expect(one).toHaveAttribute('href', 'https://example.invalid/one');
+  await expect(one).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(one).toHaveAttribute('target', '_blank');
+  await expect(page.locator('#messages')).toContainText('Fictional source one');
+  await expect(page.locator('#messages img, #messages script')).toHaveCount(0);
+  expect(
+    await page
+      .locator('#messages a')
+      .evaluateAll((links) =>
+        links.every((a) => a.getAttribute('href')?.startsWith('https://example.invalid/')),
+      ),
+  ).toBe(true);
+  expect(external).toEqual([]);
+  await selectSynthetic(page);
+  await fakeClipboard(page);
+  await page.locator('#copy-markdown').click();
+  const copied = await page.locator('html').getAttribute('data-copied');
+  expect(copied).toContain('[1](<https://example.invalid/one>)');
+  expect(copied).not.toContain('\uE200');
+  await page.locator('#export-format').selectOption('json');
+  await page.getByRole('button', { name: 'Review & download' }).click();
+  const json = await page.locator('#review-text').inputValue();
+  expect(JSON.parse(json).conversations[0].messages[1].text).toContain(first);
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page
+    .locator('#files')
+    .setInputFiles({ name: 'cited.json', mimeType: 'application/json', buffer: Buffer.from(json) });
+  await expect(page.locator('#messages a').filter({ hasText: /^1$/ })).toHaveAttribute(
+    'href',
+    'https://example.invalid/one',
+  );
+  await expect(page.locator('#messages')).not.toContainText('\uE200');
+});
+
+test('Python code containing citation syntax stays literal and inert', async ({ page }) => {
+  const marker = '\uE200genui\uE202{"citation":{"ref":"turn2view0"}}\uE201';
+  const code = `print(${JSON.stringify(marker)})\nprint("<script>window.codeRan = true</script>")`;
+  await upload(page, conversation('```python\n' + code + '\n```'));
+  expect((await page.locator('#messages pre code').textContent())?.trimEnd()).toBe(code);
+  await expect(page.locator('#messages a, #messages script')).toHaveCount(0);
+  expect(await page.evaluate(() => Object.hasOwn(window, 'codeRan'))).toBe(false);
+  await selectSynthetic(page);
+  await page.getByRole('button', { name: 'Review & download' }).click();
+  await expect(page.locator('#review-text')).toHaveValue(new RegExp('print\\('));
+  expect(await page.locator('#review-text').inputValue()).toContain(code);
+});

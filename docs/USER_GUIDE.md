@@ -20,6 +20,8 @@ The read-only preview shows every visible user and assistant message on the curr
 
 The current path follows parent links ending at the export's `current_node`. Missing parents create a partial history with an import note; cycles cause the affected conversation to be skipped. Alternate branches and system/tool/hidden messages are omitted from the readable transcript. Check the source export for those records.
 
+ChatGPT web citation markers (both `genui` and older `cite` formats) are displayed as numbered source links with a source list beneath the message. The same readable citations appear in Markdown downloads and copied transcripts. If the export does not include a usable source URL, the viewer shows `[source unavailable]`. It does not guess the destination or fetch missing sources. Code fences, inline code, and indented code retain citation syntax literally. Portable JSON keeps the original message text and its validated source metadata so citations still work when reopened.
+
 Markdown is formatted locally. Embedded images, scripts, HTML media, forms, and frames are blocked. External hyperlinks open only when clicked. Image/audio/video references appear as text placeholders; original media files must be provided separately.
 
 ## Select and repackage whole conversations

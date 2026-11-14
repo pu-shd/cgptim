@@ -1,3 +1,4 @@
+import { citationsToMarkdown } from './citations';
 import { strToU8, zipSync } from 'fflate';
 import { type Conversation, type Message, visibleMessages } from './model';
 
@@ -43,6 +44,7 @@ export function portableJson(slices: Slice[]): string {
           time: m.time,
           hidden: m.hidden,
           attachments: m.attachments,
+          citations: m.citations,
         })),
       })),
     },
@@ -73,7 +75,7 @@ export function markdown(s: Slice): string {
     header.push(
       `### ${i + 1}. ${m.role.replace(/[\r\n]/g, ' ')} · ${date(m.time)}`,
       '',
-      m.text,
+      citationsToMarkdown(m.text, m.citations),
       '',
     );
     if (m.attachments.length)

@@ -1,3 +1,8 @@
+export interface Citation {
+  ref: string;
+  title: string;
+  url: string;
+}
 export interface Message {
   id: string;
   parent: string | null;
@@ -6,6 +11,7 @@ export interface Message {
   time: number | null;
   hidden: boolean;
   attachments: string[];
+  citations?: Citation[];
 }
 export interface Conversation {
   id: string;

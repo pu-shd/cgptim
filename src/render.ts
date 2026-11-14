@@ -1,3 +1,5 @@
+import { citationsToMarkdown } from './citations';
+import type { Citation } from './model';
 import DOMPurify from 'dompurify';
 import { Marked } from 'marked';
 
@@ -7,11 +9,11 @@ export function escape(value: string): string {
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
 }
-export function renderMarkdown(text: string): string {
+export function renderMarkdown(text: string, citations: Citation[] = []): string {
   const parser = new Marked({
     renderer: { image: ({ text }) => escape(`[Image: ${text} — external images are blocked]`) },
   });
-  const html = parser.parse(text, { async: false });
+  const html = parser.parse(citationsToMarkdown(text, citations), { async: false });
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       'p',
