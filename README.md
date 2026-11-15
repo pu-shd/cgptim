@@ -12,7 +12,7 @@ A local-first viewer for ChatGPT data exports. Select whole conversations and co
 - Review and download combined Markdown or portable JSON, or download a ZIP with separate files.
 - Copy Markdown up to 32 KiB directly to the clipboard. If clipboard access is denied, the app selects the text for manual copying.
 - Inspect settings, shared conversation records, library records, and other related JSON separately.
-- Steps 2 and 3 use disclosure triangles: closed initially, opened when an export loads, and closed again by **Clear**.
+- Steps 2 and 3 use disclosure triangles. Explore opens after loading an export; Repackage unlocks when Explore is expanded and conversations are selected. **Clear** collapses and locks both.
 
 Files are processed in this browser tab. There is no upload endpoint, analytics, account connection, API key, or browser storage. Markdown images and embedded media are blocked. The app does not restore conversations into an account: attach a transcript to a new chat to provide historical context. Original media files must be supplied separately.
 

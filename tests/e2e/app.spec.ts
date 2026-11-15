@@ -28,6 +28,15 @@ async function upload(page: Page, data: unknown = conversation()) {
 async function selectSynthetic(page: Page) {
   await page.getByRole('checkbox', { name: 'Select Synthetic conversation', exact: true }).check();
 }
+async function openRepackaging(page: Page) {
+  if (
+    !(await page.locator('#export-panel').evaluate((element: HTMLDetailsElement) => element.open))
+  ) {
+    await page.locator('#export-panel > summary').click();
+  }
+  await expect(page.locator('#export-panel')).toHaveAttribute('open', '');
+}
+
 async function fakeClipboard(page: Page, fail = false) {
   await page.evaluate((fail) => {
     Object.defineProperty(navigator, 'clipboard', {
@@ -60,10 +69,10 @@ test('page title and collapsed sections reflect the simplified initial state', a
   await expect(page.locator('#export-panel')).not.toHaveAttribute('open');
   await page.locator('#workspace > summary').focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('#workspace')).toHaveAttribute('open', '');
+  await expect(page.locator('#workspace')).not.toHaveAttribute('open');
   await page.getByRole('button', { name: 'Try a sample archive' }).click();
   await expect(page.locator('#workspace')).toHaveAttribute('open', '');
-  await expect(page.locator('#export-panel')).toHaveAttribute('open', '');
+  await expect(page.locator('#export-panel')).not.toHaveAttribute('open');
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
   await expect(page.locator('#workspace')).not.toHaveAttribute('open');
   await expect(page.locator('#export-panel')).not.toHaveAttribute('open');
@@ -243,6 +252,7 @@ test('exports a complete selected conversation as Markdown and round-trips JSON'
 }) => {
   await upload(page);
   await selectSynthetic(page);
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   await expect(page.locator('#review-text')).toHaveValue(/Selected 2 of 2/);
   const downloaded = page.waitForEvent('download');
@@ -253,6 +263,7 @@ test('exports a complete selected conversation as Markdown and round-trips JSON'
   expect(contents).toContain('A private question');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.locator('#export-format').selectOption('json');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   const json = await page.locator('#review-text').inputValue();
   await expect(page.locator('#copy-review')).toBeHidden();
@@ -304,6 +315,7 @@ test('whole-conversation selection persists across browsing and excludes uncheck
   await page.locator('[data-open="sample-code"]').click();
   await expect(page.locator('#selection-count')).toHaveText('1 conversation selected');
   const event = page.waitForEvent('download');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Download selected (ZIP)' }).click();
   const file = await event;
   const entries = unzipSync(await readFile((await file.path())!));
@@ -323,11 +335,13 @@ test('multiple selected conversations are included in a combined Markdown and po
   await page.getByRole('button', { name: 'Try a sample archive' }).click();
   await page.getByRole('button', { name: 'Select all', exact: true }).click();
   await expect(page.locator('#selection-count')).toHaveText('2 conversations selected');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   await expect(page.locator('#review-text')).toHaveValue(/# A small garden, a fresh start/);
   await expect(page.locator('#review-text')).toHaveValue(/# Notes for a weekend project/);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.locator('#export-format').selectOption('json');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   const data = JSON.parse(await page.locator('#review-text').inputValue());
   expect(data.conversations).toHaveLength(2);
@@ -338,11 +352,11 @@ test('tab navigation and empty conversation selection provide usable feedback', 
   page,
 }) => {
   await upload(page);
-  await expect(page.getByRole('button', { name: 'Review & download' })).toBeDisabled();
+  await expect(page.locator('#preview')).toBeDisabled();
   await expect(page.locator('#copy-markdown')).toBeHidden();
   await selectSynthetic(page);
   await page.getByRole('button', { name: 'Clear selection', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Review & download' })).toBeDisabled();
+  await expect(page.locator('#preview')).toBeDisabled();
   await page.getByRole('tab', { name: 'Conversations', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Archive data' })).toBeFocused();
@@ -353,11 +367,13 @@ test('short Markdown can be copied directly and from its exact review', async ({
   await upload(page);
   await selectSynthetic(page);
   await fakeClipboard(page);
+  await openRepackaging(page);
   await page.locator('#copy-markdown').click();
   await expect(page.locator('#export-status')).toContainText('Copied');
   const direct = await page.locator('html').getAttribute('data-copied');
   expect(direct).toContain('A private question');
   expect(direct).toContain('A **useful** answer');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   await page.locator('#copy-review').click();
   await expect(page.locator('#review-status')).toContainText('Copied');
@@ -372,6 +388,7 @@ test('denied clipboard falls back to selected text and a download remains availa
   await upload(page);
   await selectSynthetic(page);
   await fakeClipboard(page, true);
+  await openRepackaging(page);
   await page.locator('#copy-markdown').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.locator('#review-status')).toContainText('Clipboard access is unavailable');
@@ -390,6 +407,7 @@ test('large Markdown is downloadable without offering clipboard copying', async 
   await selectSynthetic(page);
   await expect(page.locator('#copy-markdown')).toBeHidden();
   await expect(page.locator('#clipboard-hint')).toContainText('32 KiB');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   await expect(page.locator('#copy-review')).toBeHidden();
   await expect(page.locator('#download')).toBeEnabled();
@@ -410,6 +428,7 @@ test('whole-conversation export includes messages beyond the paginated preview',
   await upload(page, [{ id: 'long', title: 'Long history', current_node: 'n249', mapping }]);
   await page.getByRole('checkbox', { name: 'Select Long history', exact: true }).check();
   await expect(page.locator('#messages article')).toHaveCount(100);
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   await expect(page.locator('#review-text')).toHaveValue(/Selected 250 of 250/);
   await expect(page.locator('#review-text')).toHaveValue(/Message 1\n/);
@@ -499,11 +518,13 @@ test('exported citation markers render as safe numbered links and survive JSON r
   expect(external).toEqual([]);
   await selectSynthetic(page);
   await fakeClipboard(page);
+  await openRepackaging(page);
   await page.locator('#copy-markdown').click();
   const copied = await page.locator('html').getAttribute('data-copied');
   expect(copied).toContain('[1](<https://example.invalid/one>)');
   expect(copied).not.toContain('\uE200');
   await page.locator('#export-format').selectOption('json');
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   const json = await page.locator('#review-text').inputValue();
   expect(JSON.parse(json).conversations[0].messages[1].text).toContain(first);
@@ -527,7 +548,74 @@ test('Python code containing citation syntax stays literal and inert', async ({ 
   await expect(page.locator('#messages a, #messages script')).toHaveCount(0);
   expect(await page.evaluate(() => Object.hasOwn(window, 'codeRan'))).toBe(false);
   await selectSynthetic(page);
+  await openRepackaging(page);
   await page.getByRole('button', { name: 'Review & download' }).click();
   await expect(page.locator('#review-text')).toHaveValue(new RegExp('print\\('));
   expect(await page.locator('#review-text').inputValue()).toContain(code);
+});
+
+async function expectLockedSection(page: Page, id: string) {
+  const summary = page.locator(`#${id} > summary`);
+  await expect(summary).toHaveAttribute('aria-disabled', 'true');
+  await summary.click({ force: true });
+  await expect(page.locator(`#${id}`)).not.toHaveAttribute('open');
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator(`#${id}`)).not.toHaveAttribute('open');
+  await page.keyboard.press('Space');
+  await expect(page.locator(`#${id}`)).not.toHaveAttribute('open');
+}
+
+test('sections reject pointer and keyboard expansion until their prerequisites are met', async ({
+  page,
+}) => {
+  await expectLockedSection(page, 'workspace');
+  await expectLockedSection(page, 'export-panel');
+  await upload(page);
+  await expect(page.locator('#workspace')).toHaveAttribute('open', '');
+  await expect(page.locator('#workspace > summary')).toHaveAttribute('aria-disabled', 'false');
+  await expectLockedSection(page, 'export-panel');
+  await selectSynthetic(page);
+  await expect(page.locator('#export-panel > summary')).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.locator('#export-panel')).not.toHaveAttribute('open');
+  await openRepackaging(page);
+  await page.locator('#workspace > summary').click();
+  await expect(page.locator('#workspace')).not.toHaveAttribute('open');
+  await expectLockedSection(page, 'export-panel');
+  await page.locator('#workspace > summary').click();
+  await expect(page.locator('#selection-count')).toHaveText('1 conversation selected');
+  await expect(
+    page.getByRole('checkbox', { name: 'Select Synthetic conversation', exact: true }),
+  ).toBeChecked();
+  await openRepackaging(page);
+  await page
+    .getByRole('checkbox', { name: 'Select Synthetic conversation', exact: true })
+    .uncheck();
+  await expectLockedSection(page, 'export-panel');
+});
+
+for (const source of ['file', 'sample']) {
+  test(`Clear collapses and locks both sections after a ${source} load`, async ({ page }) => {
+    if (source === 'file') await upload(page);
+    else await page.locator('#demo').click();
+    await page.getByRole('button', { name: 'Select all', exact: true }).click();
+    await openRepackaging(page);
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expectLockedSection(page, 'workspace');
+    await expectLockedSection(page, 'export-panel');
+    await page.locator('#demo').click();
+    await expect(page.locator('#workspace')).toHaveAttribute('open', '');
+    await expectLockedSection(page, 'export-panel');
+  });
+}
+
+test('Clear locks both sections even when Explore has already been collapsed', async ({ page }) => {
+  await upload(page);
+  await selectSynthetic(page);
+  await openRepackaging(page);
+  await page.locator('#workspace > summary').click();
+  await expect(page.locator('#export-panel')).not.toHaveAttribute('open');
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await expectLockedSection(page, 'workspace');
+  await expectLockedSection(page, 'export-panel');
 });

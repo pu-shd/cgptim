@@ -54,7 +54,7 @@
       </section>
 
       <details class="panel archive-panel" id="workspace" aria-labelledby="browse-heading">
-        <summary class="panel-heading">
+        <summary class="panel-heading" aria-disabled="true" aria-describedby="archive-count">
           <h2 id="browse-heading"><span class="step">2</span> Explore &amp; select</h2>
           <span id="archive-count" class="hint">No archive loaded</span>
         </summary>
@@ -138,8 +138,9 @@
       </details>
 
       <details class="panel export-panel" id="export-panel" aria-labelledby="export-heading">
-        <summary class="panel-heading">
+        <summary class="panel-heading" aria-disabled="true" aria-describedby="export-requirement">
           <h2 id="export-heading"><span class="step">3</span> Repackage conversations</h2>
+          <span id="export-requirement" class="hint">Open an export first.</span>
         </summary>
         <div class="export-grid">
           <div>

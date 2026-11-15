@@ -67,6 +67,34 @@ function download(data: string | Uint8Array, name: string, type: string) {
     'Download prepared. Attach the file to a new ChatGPT conversation and use the continuation prompt.',
   );
 }
+function canExpandSection(id: string): boolean {
+  return (
+    archive !== null &&
+    (id === 'workspace' ||
+      (el<HTMLDetailsElement>('workspace').open && markedConversations.size > 0))
+  );
+}
+function syncSections() {
+  const workspace = el<HTMLDetailsElement>('workspace');
+  const repackage = el<HTMLDetailsElement>('export-panel');
+  if (!canExpandSection('workspace')) workspace.open = false;
+  if (!canExpandSection('export-panel')) repackage.open = false;
+  for (const id of ['workspace', 'export-panel']) {
+    el(id)
+      .querySelector('summary')!
+      .setAttribute('aria-disabled', String(!canExpandSection(id)));
+  }
+  const hint =
+    archive === null
+      ? 'Open an export first.'
+      : !workspace.open
+        ? 'Expand Explore & select first.'
+        : !markedConversations.size
+          ? 'Select at least one conversation.'
+          : '';
+  el('export-requirement').textContent = hint;
+  el('export-requirement').hidden = !hint;
+}
 function syncImportControls() {
   const loaded = archive !== null;
   const unavailable = loaded || worker !== null;
@@ -153,7 +181,7 @@ function loadArchive(data: Archive) {
   );
   input('search').value = '';
   el<HTMLDetailsElement>('workspace').open = true;
-  el<HTMLDetailsElement>('export-panel').open = true;
+  el<HTMLDetailsElement>('export-panel').open = false;
   select('export-format').value = 'md';
   el('export-status').textContent = '';
   el('review-status').textContent = '';
@@ -270,6 +298,7 @@ function updateSelection() {
   el('clipboard-hint').textContent =
     'Markdown exceeds the 32 KiB clipboard limit. Download the file instead.';
   el('export-status').textContent = '';
+  syncSections();
 }
 function showReview(prepared: PreparedExport) {
   review = prepared;
@@ -362,6 +391,19 @@ function renderRelated() {
     return block;
   };
   target.append(tree(item.data));
+}
+
+for (const id of ['workspace', 'export-panel']) {
+  const details = el<HTMLDetailsElement>(id);
+  const summary = details.querySelector('summary')!;
+  summary.addEventListener('click', (event) => {
+    if (!canExpandSection(id)) event.preventDefault();
+  });
+  summary.addEventListener('keydown', (event) => {
+    if (!canExpandSection(id) && (event.key === 'Enter' || event.key === ' '))
+      event.preventDefault();
+  });
+  details.addEventListener('toggle', syncSections);
 }
 
 input('files').addEventListener('change', () => openFiles(Array.from(input('files').files ?? [])));

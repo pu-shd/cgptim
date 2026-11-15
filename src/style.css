@@ -752,3 +752,11 @@ dialog::backdrop {
     margin: 8px 0 0 24px;
   }
 }
+
+.panel-heading[aria-disabled='true'] {
+  color: #536b82;
+  cursor: not-allowed;
+}
+.panel-heading[aria-disabled='true']::marker {
+  color: #536b82;
+}

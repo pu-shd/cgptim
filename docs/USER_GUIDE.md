@@ -12,7 +12,7 @@ An HTML-only export is not supported. Exported HTML is never executed. Non-JSON 
 
 ## Find and read a conversation
 
-The page title is **Chat Export Viewer**. Steps 2 and 3 are collapsed behind disclosure triangles until you open an export or the sample. Loading data opens both sections; **Clear** closes them again. You can also toggle each section manually using its heading or the keyboard.
+The page title is **Chat Export Viewer**. Steps 2 and 3 start collapsed and locked. Loading a valid export or the sample opens **Explore & select**. **Repackage conversations** can be opened only while **Explore & select** is expanded and at least one conversation is selected. Use its heading or keyboard to expand it once enabled. Collapsing **Explore & select**, unchecking the last selected conversation, or using **Clear selection** collapses and locks **Repackage conversations**. Reopening **Explore & select** preserves the selected conversations; **Clear** removes the archive and collapses and locks both sections.
 
 Search matches titles and visible message text on each conversation's current path. Conversations appear by most recent update. Click a title to read the conversation; use its checkbox to include it in exports. Browsing another conversation does not change your selection.
 
