@@ -278,6 +278,19 @@ test('exports a complete selected conversation as Markdown and round-trips JSON'
   await expect(page.locator('#messages')).toContainText('A private question');
 });
 
+test('shows the media exclusion before repackaging a conversation', async ({ page }) => {
+  await upload(page);
+  await selectSynthetic(page);
+  await openRepackaging(page);
+  await expect(
+    page
+      .locator('#export-panel')
+      .getByText(
+        'Repackaged conversations omit original images, audio, video, and other attached files.',
+      ),
+  ).toBeVisible();
+});
+
 test('blocks script execution and remote media with no archive network traffic', async ({
   page,
 }) => {
@@ -443,12 +456,17 @@ test('ships production CSP and distributable license notices', async ({ page, re
   expect(csp).not.toContain('unsafe-inline');
   await expect(page.locator('footer')).not.toContainText('Design adapted from');
   await expect(page.locator('footer').getByRole('link', { name: 'StackImages' })).toHaveCount(0);
-  await expect(
-    page.locator('footer').getByRole('link', { name: 'Licenses', exact: true }),
-  ).toBeVisible();
+  const licensesLink = page.locator('footer').getByRole('link', { name: 'Licenses', exact: true });
+  await expect(licensesLink).toBeVisible();
+  await expect(licensesLink).toHaveAttribute(
+    'href',
+    'https://github.com/pu-shd/cgptim/blob/main/LICENSE',
+  );
   const response = await request.get('/licenses.txt');
   expect(response.ok()).toBe(true);
-  expect(await response.text()).toContain('Copyright (c) 2025 PrincetonUniversity');
+  const notices = await response.text();
+  expect(notices).toContain('Copyright (c) 2026 The Trustees of Princeton University');
+  expect(notices).toContain('Copyright (c) 2025 PrincetonUniversity');
 });
 
 test('exported citation markers render as safe numbered links and survive JSON reopening', async ({

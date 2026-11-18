@@ -148,6 +148,10 @@
               Copy a short Markdown transcript into a new chat, or download the selected
               conversations as attachments.
             </p>
+            <p class="hint">
+              Repackaged conversations omit original images, audio, video, and other attached files.
+              Attach those files separately if needed.
+            </p>
             <div class="actions">
               <button id="preview" disabled>Review &amp; download</button>
               <button id="copy-markdown" class="secondary" hidden>Copy to clipboard</button>
@@ -174,9 +178,9 @@
         </div>
         <p class="hint">
           This creates an attachment for context. It does not restore chats to an account or
-          transfer memories, projects, custom instructions, or original attachments. Exports use the
-          current conversation path; alternate branches and hidden/system/tool messages are omitted.
-          ChatGPT’s upload and context limits still apply.
+          transfer memories, projects, or custom instructions. Exports use the current conversation
+          path; alternate branches and hidden/system/tool messages are omitted. ChatGPT’s upload and
+          context limits still apply.
         </p>
       </details>
 
@@ -229,7 +233,14 @@
       </details>
       <footer>
         <p>
-          cgptim 1.1 · <a href="./licenses.txt">Licenses</a> ·
+          cgptim 1.1 ·
+          <a
+            href="https://github.com/pu-shd/cgptim/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Licenses</a
+          >
+          ·
           <a href="https://github.com/pu-shd/cgptim" target="_blank" rel="noopener noreferrer"
             >Source &amp; documentation</a
           >

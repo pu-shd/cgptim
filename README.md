@@ -16,7 +16,7 @@ A local-first viewer for ChatGPT data exports. Select whole conversations and co
 
 Files are processed in this browser tab. There is no upload endpoint, analytics, account connection, API key, or browser storage. Markdown images and embedded media are blocked. The app does not restore conversations into an account: attach a transcript to a new chat to provide historical context. Original media files must be supplied separately.
 
-The visual design adapts [PrincetonUniversity/StackImages](https://github.com/PrincetonUniversity/StackImages): the same light blue-gray palette, white panels, system fonts, numbered workflow, controls, and inline status messages. ChatGPT-style message blocks and a conversation sidebar extend that design. Credits and the upstream MIT license are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The visual design adapts [PrincetonUniversity/StackImages](https://github.com/PrincetonUniversity/StackImages): the same light blue-gray palette, white panels, system fonts, numbered workflow, controls, and inline status messages. ChatGPT-style message blocks and a conversation sidebar extend that design. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
 ## Use it
 
